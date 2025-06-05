@@ -2,11 +2,10 @@
 """
 Modelo Getzen – Versão Brasil (Streamlit / Offline)
 --------------------------------------------------
-* 100% offline: sem dependência de internet ou chamadas a APIs.
-* Usuário informa parâmetros manualmente ou faz upload do CSV.
-* Paleta de cores corporativa (azul & laranja).
-* Exporta CSV e XLSX.
-* Compatível com Python 3.9+ e Streamlit 1.34+.
+* Projeção inicia em 2026 com base no histórico até 2024.
+* Ano de 2025 estimado por regressão linear (2021–2024).
+* Projeção futura suavizada até convergir ao crescimento médico pleno.
+* 100% offline, exporta CSV e gera gráficos comparativos.
 """
 
 import io
@@ -16,6 +15,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression
 
 ###############################################################################
 # INTERFACE E ENTRADAS MANUAIS
@@ -34,7 +34,6 @@ inflacao = st.sidebar.number_input("Inflação esperada (CPI)", 0.0, 1.0, 0.035,
 renda_real = st.sidebar.number_input("Crescimento real da renda per capita", 0.0, 1.0, 0.015, step=0.000001, format="%.6f", help="Variação real da renda per capita além da inflação. Ex: 0.015 = 1,5%.")
 renda_pc_padrao = inflacao + renda_real
 
-# Upload opcional do PIB per capita
 uploaded_file = st.sidebar.file_uploader("📂 Carregar CSV PIB per capita (opcional)", type="csv", help="Deve conter colunas: Ano,Valor – onde Valor é o PIB per capita em R$")
 
 if uploaded_file:
@@ -54,20 +53,25 @@ if uploaded_file:
 else:
     renda_pc_proj = renda_pc_padrao
 
-# Entradas fixas iniciais
 ano_transicao_fim = 2030
-share_inicial = st.sidebar.number_input("Participação inicial da Saúde no PIB", 0.0, 1.0, 0.096, step=0.000001, format="%.6f", help="Ex: 0.096 representa 9,6% do PIB total destinado à saúde no início da projeção")
-share_resistencia = st.sidebar.number_input("Limite de resistência (share máximo)", 0.0, 1.0, 0.15, step=0.000001, format="%.6f", help="Ex: 0.15 representa 15% do PIB como teto político-fiscal para despesas com saúde")
+share_inicial = st.sidebar.number_input("Participação inicial da Saúde no PIB", 0.0, 1.0, 0.096, step=0.000001, format="%.6f")
+share_resistencia = st.sidebar.number_input("Limite de resistência (share máximo)", 0.0, 1.0, 0.15, step=0.000001, format="%.6f")
 
-g_medico_manual = [
-    st.sidebar.number_input("Ano 1 – Crescimento Médico", 0.0, 1.0, 0.151, step=0.000001, format="%.6f", help="Crescimento dos custos médicos no 1º ano da projeção (ex: 0.151 = 15,1%)."),
-    st.sidebar.number_input("Ano 2 – Crescimento Médico", 0.0, 1.0, 0.127, step=0.000001, format="%.6f", help="Crescimento dos custos médicos no 2º ano da projeção (ex: 0.127 = 12,7%)."),
-    st.sidebar.number_input("Ano 3 – Crescimento Médico", 0.0, 1.0, 0.112, step=0.000001, format="%.6f", help="Crescimento dos custos médicos no 3º ano da projeção (ex: 0.112 = 11,2%)."),
-    st.sidebar.number_input("Ano 4 – Crescimento Médico", 0.0, 1.0, 0.105, step=0.000001, format="%.6f", help="Crescimento dos custos médicos no 4º ano da projeção (ex: 0.105 = 10,5%)."),
+g_manual = [
+    st.sidebar.number_input("Ano 1 – Crescimento Médico (2021)", 0.0, 1.0, 0.250, step=0.000001, format="%.6f"),
+    st.sidebar.number_input("Ano 2 – Crescimento Médico (2022)", 0.0, 1.0, 0.230, step=0.000001, format="%.6f"),
+    st.sidebar.number_input("Ano 3 – Crescimento Médico (2023)", 0.0, 1.0, 0.1425, step=0.000001, format="%.6f"),
+    st.sidebar.number_input("Ano 4 – Crescimento Médico (2024)", 0.0, 1.0, 0.1425, step=0.000001, format="%.6f")
 ]
 
+# Estimar g_2025 via regressão linear (anos 2021–2024)
+anos_hist = np.array([2021, 2022, 2023, 2024]).reshape(-1, 1)
+valores_hist = np.array(g_manual).reshape(-1, 1)
+modelo = LinearRegression().fit(anos_hist, valores_hist)
+g_2025 = float(modelo.predict([[2025]])[0][0])
+
 ###############################################################################
-# PROJEÇÃO COM OTIMIZAÇÃO DO CRESCIMENTO MÉDICO PLENO
+# SIMULAÇÃO COM OTIMIZAÇÃO DE G_MEDICO_FINAL
 ###############################################################################
 
 def resistencia(share, limite, k=0.02):
@@ -77,12 +81,10 @@ def simular_projecao(g_medico_final):
     anos = list(range(ano_inicio, ano_inicio + anos_proj))
     crescimento_medico, hcctr, share, custo = [], [], [share_inicial], [1.0]
     for i, ano in enumerate(anos):
-        if i < 4:
-            g_m = g_medico_manual[i]
-        elif ano <= ano_transicao_fim:
-            denom = ano_transicao_fim - ano_inicio - 4
-            frac = (ano - ano_inicio - 4) / denom if denom != 0 else 1.0
-            g_m = g_medico_manual[-1] + (g_medico_final - g_medico_manual[-1]) * frac
+        if ano <= ano_transicao_fim:
+            frac = (ano - 2025) / (ano_transicao_fim - 2025)
+            frac = min(max(frac, 0), 1)
+            g_m = g_2025 + (g_medico_final - g_2025) * frac
         elif ano >= ano_limite:
             g_m = renda_pc_proj
         else:
@@ -104,15 +106,12 @@ for g in intervalo_testes:
 
 anos = list(range(ano_inicio, ano_inicio + anos_proj))
 crescimento_medico, hcctr, share, custo, debug_data = [], [], [share_inicial], [1.0], []
-for i, ano in enumerate(anos):
-    if i < 4:
-        g_m = g_medico_manual[i]
-        motivo = f"Manual ({ano_inicio}–{ano_inicio + 3})"
-    elif ano <= ano_transicao_fim:
-        denom = ano_transicao_fim - ano_inicio - 4
-        frac = (ano - ano_inicio - 4) / denom if denom != 0 else 1.0
-        g_m = g_medico_manual[-1] + (best_gmed - g_medico_manual[-1]) * frac
-        motivo = "Transição Linear"
+for ano in anos:
+    if ano <= ano_transicao_fim:
+        frac = (ano - 2025) / (ano_transicao_fim - 2025)
+        frac = min(max(frac, 0), 1)
+        g_m = g_2025 + (best_gmed - g_2025) * frac
+        motivo = "Interpolação 2025–2030"
     elif ano >= ano_limite:
         g_m = renda_pc_proj
         motivo = "Ano limite: crescimento médico = renda"
