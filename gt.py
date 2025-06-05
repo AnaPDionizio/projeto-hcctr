@@ -9,7 +9,6 @@ Modelo Getzen – Versão Brasil (Streamlit / Offline)
 * 100% offline, exporta CSV e gera gráficos comparativos.
 """
 
-import io
 import os
 from pathlib import Path
 
@@ -18,161 +17,245 @@ import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
 
-###############################################################################
-# INTERFACE E BOTÃO DE DOWNLOAD DO CSV DE EXEMPLO
-###############################################################################
-
-st.set_page_config(page_title="Modelo Getzen Brasil", layout="centered")
-st.title("📊 Inflação Médica – Modelo Getzen Adaptado ao Brasil")
-
-# Botão para baixar o CSV de exemplo que está no repositório
-caminho_csv_exemplo = os.path.join(os.path.dirname(__file__), "pib_percapita_brasil.csv")
-if os.path.exists(caminho_csv_exemplo):
-    with open(caminho_csv_exemplo, "rb") as f:
-        dados_exemplo = f.read()
-    st.sidebar.download_button(
-        label="📥 Baixar CSV de Exemplo (PIB per capita)",
-        data=dados_exemplo,
-        file_name="pib_percapita_modelo.csv",
-        mime="text/csv",
-        help="Este é o arquivo de modelo contendo colunas 'Ano' e 'Valor' até 2024."
-    )
-else:
-    st.sidebar.warning("CSV de exemplo não encontrado no repositório.")
-
-###############################################################################
-# PARÂMETROS DE ENTRADA (BARRA LATERAL)
-###############################################################################
-
-st.sidebar.header("Parâmetros de Entrada")
-
-# Horizonte de projeção em anos
-anos_proj = st.sidebar.slider(
-    "Anos de Projeção", 10, 100, 60,
-    help="Defina o horizonte da projeção atuarial em anos. Ex: 60 anos para planos de longo prazo."
+# ------------------------------------------------------------------------
+# CONFIGURAÇÃO GERAL DA PÁGINA
+# ------------------------------------------------------------------------
+st.set_page_config(
+    page_title="Modelo Getzen Brasil",
+    layout="wide",
+    page_icon="📈",  # Ícone discreto, sem excesso de clareza
 )
 
-# Ano em que a projeção efetiva começa
-ano_inicio = 2026
-
-# Ano limite para HCCTR convergir a zero (crescimento médico = crescimento de renda)
-ano_limite = st.sidebar.number_input(
-    "Ano limite para convergência HCCTR = 0", 2035, 2100, 2060,
-    help="Ano a partir do qual se assume que o crescimento médico = crescimento da renda per capita."
+# Estilo CSS customizado para um visual mais refinado
+st.markdown(
+    """
+    <style>
+        /* Fonte corporativa e espaçamentos */
+        .css-18e3th9 {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+        }
+        /* Container principal */
+        .main-header {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #1F2833;  /* Azul-escuro corporativo */
+            margin-bottom: 0.5rem;
+        }
+        .subheader {
+            font-size: 1.1rem;
+            color: #444444;
+            margin-bottom: 1.5rem;
+        }
+        /* Cabeçalho da sidebar */
+        .sidebar .sidebar-content {
+            padding-top: 1.5rem;
+        }
+        .sidebar-header {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1F2833;
+            margin-bottom: 1rem;
+        }
+        .expander-header {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: #222222;
+        }
+        /* Metricas principais */
+        .stMetric {
+            text-align: center;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
 )
 
-# Inflação esperada (IPCA/CPI)
-inflacao = st.sidebar.number_input(
-    "Inflação esperada (CPI)", 0.0, 1.0, 0.035,
-    step=0.000001, format="%.6f",
-    help="Inflação média anual esperada. Ex: 0.035 representa 3,5%."
-)
-
-# Crescimento real da renda per capita (fallback, se não houver CSV)
-renda_real = st.sidebar.number_input(
-    "Crescimento real da renda per capita", 0.0, 1.0, 0.015,
-    step=0.000001, format="%.6f",
-    help="Variação real da renda per capita além da inflação. Ex: 0.015 = 1,5%."
-)
-
-# Soma de inflação + crescimento real = crescimento projetado da renda per capita
-renda_pc_padrao = inflacao + renda_real
-
-# Upload opcional do CSV de PIB per capita (Ano,Valor)
-uploaded_file = st.sidebar.file_uploader(
-    "📂 Carregar CSV PIB per capita (opcional)", type="csv",
-    help="Deve conter colunas: Ano,Valor – onde Valor é o PIB per capita em R$"
-)
-
-if uploaded_file:
-    try:
-        pib_df = pd.read_csv(uploaded_file)
-        if not {"Ano", "Valor"}.issubset(pib_df.columns):
-            raise ValueError("CSV deve conter as colunas 'Ano' e 'Valor'")
-        pib_df["Valor"] = pd.to_numeric(pib_df["Valor"], errors="coerce")
-        pib_df = pib_df.dropna()
-        pib_df = pib_df.set_index("Ano")
-        # Calcular média histórica de crescimento real per capita
-        lista_cres_real = []
-        for ano in pib_df.index:
-            if (ano - 1) in pib_df.index:
-                g_nominal = (pib_df.loc[ano, "Valor"] / pib_df.loc[ano - 1, "Valor"]) - 1
-                lista_cres_real.append(g_nominal)
-        # Como não temos inflação ano a ano no CSV, assumimos que a soma já reflete o nominal
-        media_real = np.mean(lista_cres_real)  # aproximação de crescimento real médio
-        renda_pc_proj = inflacao + media_real
-        st.sidebar.markdown(
-            f"<small>⏳ Crescimento real da renda estimado pela média histórica: "
-            f"<strong>{media_real:.4%}</strong></small>",
+# ------------------------------------------------------------------------
+# BANNER INSTITUCIONAL (LOGO + TÍTULO)
+# ------------------------------------------------------------------------
+with st.container():
+    col_logo, col_title = st.columns([1, 8])
+    with col_logo:
+        # Caso haja um arquivo 'logo.png' na pasta, exibe; caso contrário, apenas título
+        logo_path = Path(__file__).parent / "logo.png"
+        if logo_path.exists():
+            st.image(str(logo_path), width=120)
+    with col_title:
+        st.markdown('<div class="main-header">Inflação Médica – Modelo Getzen Adaptado ao Brasil</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="subheader">Painel para projeções atuariais de HCCTR e share de saúde no PIB, em consonância com melhores práticas corporativas.</div>',
             unsafe_allow_html=True
         )
-    except Exception as e:
-        st.error(f"Erro ao ler CSV: {e}")
+
+st.markdown("---")
+
+# ------------------------------------------------------------------------
+# SIDEBAR: DADOS DE ENTRADA E DOWNLOAD
+# ------------------------------------------------------------------------
+st.sidebar.markdown('<div class="sidebar-header">Parâmetros e Recursos</div>', unsafe_allow_html=True)
+
+# DOWNLOAD DE DADOS DE REFERÊNCIA
+with st.sidebar.expander("Dados de Referência"):
+    path_exemplo = os.path.join(os.path.dirname(__file__), "pib_percapita_brasil.csv")
+    if os.path.exists(path_exemplo):
+        with open(path_exemplo, "rb") as f:
+            exemplo_bytes = f.read()
+        st.download_button(
+            label="Download: PIB per capita (exemplo)",
+            data=exemplo_bytes,
+            file_name="pib_percapita_modelo.csv",
+            mime="text/csv",
+            help="Arquivo de calibração com colunas 'Ano' e 'Valor' (até 2024)."
+        )
+    else:
+        st.warning("Arquivo de exemplo não encontrado.")
+
+# CONFIGURAÇÃO DOS PARÂMETROS ATUARIAIS
+with st.sidebar.expander("1. Horizon e Cenários Atuais"):
+    st.markdown("##### Horizonte de Projeção")
+    anos_proj = st.slider(
+        label="Horizonte (anos)",
+        min_value=10, max_value=100, value=60, step=1,
+        help="Define o horizonte de tempo para projeção atuária (ex.: 60 anos para planos de longo prazo)."
+    )
+
+    st.markdown("##### Ano de Início da Projeção")
+    ano_inicio = 2026
+    st.markdown(f"**Ano efetivo de partida:** {ano_inicio}", unsafe_allow_html=True)
+
+    st.markdown("##### Ano de Convergência de HCCTR")
+    ano_limite = st.number_input(
+        label="Ano em que HCCTR → 0",
+        min_value=2035, max_value=2100, value=2060, step=1,
+        help="Ano a partir do qual o crescimento médico converge para o crescimento da renda per capita."
+    )
+
+# PARÂMETROS MACROECONÔMICOS
+with st.sidebar.expander("2. Inflação e Renda Per Capita"):
+    st.markdown("##### Inflação (IPCA/CPI)")
+    inflacao = st.number_input(
+        label="Inflação Média Projetada",
+        min_value=0.000000, max_value=1.000000, value=0.035000,
+        step=0.000001, format="%.6f",
+        help="Infl ação média anual estimada (ex.: 0.035 = 3,5%)."
+    )
+
+    st.markdown("##### Crescimento Real da Renda")
+    renda_real = st.number_input(
+        label="Crescimento Real da Renda Per Capita",
+        min_value=0.000000, max_value=1.000000, value=0.015000,
+        step=0.000001, format="%.6f",
+        help="Variação real adicional da renda per capita (ex.: 0.015 = 1,5%)."
+    )
+
+    renda_pc_padrao = inflacao + renda_real
+
+    st.markdown("##### Carregar Base Externa (Opcional)")
+    uploaded_file = st.file_uploader(
+        label="CSV: PIB per capita",
+        type="csv",
+        help="Arquivo com colunas 'Ano' e 'Valor' (PIB per capita em R$)."
+    )
+    if uploaded_file:
+        try:
+            pib_df = pd.read_csv(uploaded_file)
+            if not {"Ano", "Valor"}.issubset(pib_df.columns):
+                raise ValueError("O CSV deve conter as colunas 'Ano' e 'Valor'.")
+            pib_df["Valor"] = pd.to_numeric(pib_df["Valor"], errors="coerce")
+            pib_df = pib_df.dropna().set_index("Ano")
+            lista_cres_real = []
+            for ano in pib_df.index:
+                if (ano - 1) in pib_df.index:
+                    g_nominal = pib_df.loc[ano, "Valor"] / pib_df.loc[ano - 1, "Valor"] - 1
+                    lista_cres_real.append(g_nominal)
+            media_real = np.mean(lista_cres_real)
+            renda_pc_proj = inflacao + media_real
+            st.markdown(
+                f"<div><small>Crescimento real estimado historicamente: <strong>{media_real:.4%}</strong></small></div>",
+                unsafe_allow_html=True
+            )
+        except Exception as e:
+            st.error(f"Falha ao ler CSV de PIB: {e}")
+            renda_pc_proj = renda_pc_padrao
+    else:
         renda_pc_proj = renda_pc_padrao
-else:
-    renda_pc_proj = renda_pc_padrao
 
-# Ano em que a transição linear termina (crescimento pleno começa após isso)
-ano_transicao_fim = 2030
+# HIPÓTESES HISTÓRICAS DE CRESCIMENTO MÉDICO
+with st.sidebar.expander("3. Crescimento Médico (2021–2024)"):
+    st.markdown("#### Insira os valores observados:")
+    g_manual = [
+        st.number_input(
+            label="2021 – Crescimento Médico",
+            min_value=0.000000, max_value=1.000000, value=0.250000,
+            step=0.000001, format="%.6f",
+            help="Ex.: 0.250 = 25,0% em 2021."
+        ),
+        st.number_input(
+            label="2022 – Crescimento Médico",
+            min_value=0.000000, max_value=1.000000, value=0.230000,
+            step=0.000001, format="%.6f",
+            help="Ex.: 0.230 = 23,0% em 2022."
+        ),
+        st.number_input(
+            label="2023 – Crescimento Médico",
+            min_value=0.000000, max_value=1.000000, value=0.142500,
+            step=0.000001, format="%.6f",
+            help="Ex.: 0.1425 = 14,25% em 2023."
+        ),
+        st.number_input(
+            label="2024 – Crescimento Médico",
+            min_value=0.000000, max_value=1.000000, value=0.142500,
+            step=0.000001, format="%.6f",
+            help="Ex.: 0.1425 = 14,25% em 2024."
+        )
+    ]
+    # Regressão linear manual para cálculo de g_2025
+    anos_hist = np.array([2021, 2022, 2023, 2024])
+    valores_hist = np.array(g_manual)
+    b = np.cov(anos_hist, valores_hist, bias=True)[0, 1] / np.var(anos_hist)
+    a = valores_hist.mean() - b * anos_hist.mean()
+    g_2025 = a + b * 2025
+    st.markdown(f"**Estimativa g_2025 (regressão linear):** {g_2025:.4%}", unsafe_allow_html=True)
 
-# Share inicial da saúde no PIB (em % do PIB total)
-share_inicial = st.sidebar.number_input(
-    "Participação inicial da Saúde no PIB", 0.0, 1.0, 0.096,
-    step=0.000001, format="%.6f",
-    help="Ex: 0.096 representa 9,6% do PIB total destinado à saúde no início da projeção."
-)
+# PARÂMETROS DE SHARE E RESISTÊNCIA POLÍTICO-FISCAL
+with st.sidebar.expander("4. Share de Saúde e Resistência"):
+    st.markdown("##### Share Inicial")
+    share_inicial = st.number_input(
+        label="Participação Inicial da Saúde no PIB",
+        min_value=0.000000, max_value=1.000000, value=0.096000,
+        step=0.000001, format="%.6f",
+        help="Ex.: 0.096 = 9,6% do PIB destinado à saúde."
+    )
 
-# Limite de resistência (share máximo tolerado)
-share_resistencia = st.sidebar.number_input(
-    "Limite de resistência (share máximo)", 0.0, 1.0, 0.15,
-    step=0.000001, format="%.6f",
-    help="Ex: 0.15 representa 15% do PIB como teto político-fiscal para despesas com saúde."
-)
+    st.markdown("##### Limite Máximo Tolerado")
+    share_resistencia = st.number_input(
+        label="Limite de Resistência (Share Máximo)",
+        min_value=0.000000, max_value=1.000000, value=0.150000,
+        step=0.000001, format="%.6f",
+        help="Ex.: 0.15 = 15% do PIB como teto para despesas com saúde."
+    )
 
-# Dados históricos de crescimento médico (2021–2024)
-g_manual = [
-    st.sidebar.number_input("Ano 1 – Crescimento Médico (2021)", 0.0, 1.0, 0.250,
-                            step=0.000001, format="%.6f",
-                            help="Crescimento médico observado em 2021 (ex: 0.250 = 25,0%)."),
-    st.sidebar.number_input("Ano 2 – Crescimento Médico (2022)", 0.0, 1.0, 0.230,
-                            step=0.000001, format="%.6f",
-                            help="Crescimento médico observado em 2022 (ex: 0.230 = 23,0%)."),
-    st.sidebar.number_input("Ano 3 – Crescimento Médico (2023)", 0.0, 1.0, 0.1425,
-                            step=0.000001, format="%.6f",
-                            help="Crescimento médico observado em 2023 (ex: 0.1425 = 14,25%)."),
-    st.sidebar.number_input("Ano 4 – Crescimento Médico (2024)", 0.0, 1.0, 0.1425,
-                            step=0.000001, format="%.6f",
-                            help="Crescimento médico observado em 2024 (ex: 0.1425 = 14,25%).")
-]
+st.sidebar.markdown("---")
+st.sidebar.markdown("© 2025 – Comitê de Modelagem Atuarial")
 
-# Estimar g_2025 via regressão linear manual (anos 2021–2024)
-anos_hist = np.array([2021, 2022, 2023, 2024])
-valores_hist = np.array(g_manual)
-# Coeficiente angular b = Cov(x,y) / Var(x)
-b = np.cov(anos_hist, valores_hist, bias=True)[0, 1] / np.var(anos_hist)
-# Intercepto a = média(y) – b * média(x)
-a = valores_hist.mean() - b * anos_hist.mean()
-# Prever g para 2025
-g_2025 = a + b * 2025
-
-###############################################################################
-# FUNÇÕES DE SIMULAÇÃO
-###############################################################################
+# ------------------------------------------------------------------------
+# FUNÇÕES DE CÁLCULO E SIMULAÇÃO
+# ------------------------------------------------------------------------
 
 def resistencia(share_atual: float, limite: float, k: float = 0.02) -> float:
     """
     Função logística de resistência:
       f(share) = 1 / [1 + exp((share - limite)/k)]
-    Quanto mais próximo do limite, mais reduzido será o excesso.
+    Quando o share se aproxima do limite, a taxa de crescimento adicional diminui gradualmente.
     """
     return 1.0 / (1.0 + np.exp((share_atual - limite) / k))
 
 
 def simular_projecao(g_medico_final: float):
     """
-    Simula a projeção de share, crescimento médico, HCCTR e custo
-    ao longo dos anos, dado um valor de crescimento médico pleno g_medico_final.
-    Retorna tupla de listas: (share, crescimento_medico, hcctr, custo_acumulado).
+    Executa a simulação do share de saúde, HCCTR e custo acumulado ao longo do horizonte definido.
+    Retorna: (lista_share, lista_crescimento_médico, lista_hcctr, lista_custo_acumulado)
     """
     anos = list(range(ano_inicio, ano_inicio + anos_proj))
     crescimento_medico = []
@@ -181,18 +264,16 @@ def simular_projecao(g_medico_final: float):
     custo = [1.0]
 
     for ano in anos:
-        # 1) De 2026 a 2030: interpolar entre g_2025 e g_medico_final
-        if ano <= ano_transicao_fim:
-            denom = ano_transicao_fim - 2025
+        # Fase de interpolação entre g_2025 e g_medico_final (2026–2030)
+        if ano <= 2030:
+            denom = 2030 - 2025
             frac = (ano - 2025) / denom if denom != 0 else 1.0
             frac = min(max(frac, 0.0), 1.0)
             g_m = g_2025 + (g_medico_final - g_2025) * frac
-
-        # 2) Acima do ano_limite: g_m = renda per capita projetada (convergência)
+        # Convergência absoluta ao crescimento da renda após o ano limite
         elif ano >= ano_limite:
             g_m = renda_pc_proj
-
-        # 3) Entre 2031 e ano_limite: aplicar resistência
+        # Aplicação de resistência política-fiscal entre 2031 e ano_limite
         else:
             excesso = max(g_medico_final - renda_pc_proj, 0.0)
             fator_res = resistencia(share[-1], share_resistencia)
@@ -205,50 +286,44 @@ def simular_projecao(g_medico_final: float):
 
     return share, crescimento_medico, hcctr, custo
 
-
-###############################################################################
-# DETERMINAÇÃO DE g_medico_final (CRESCIMENTO MÉDICO PLENO)
-###############################################################################
-
-# Testar valores de 5% a 12% em 200 passos
+# ------------------------------------------------------------------------
+# DETERMINAÇÃO DO CRESCIMENTO MÉDICO PLENO
+# ------------------------------------------------------------------------
 intervalo_testes = np.linspace(0.05, 0.12, 200)
 best_gmed = renda_pc_proj
 
 for g in intervalo_testes:
     s_sim, _, _, _ = simular_projecao(g)
-    # share_sim[-1] = share em (ano_inicio + anos_proj - 1)
+    # Verifica o primeiro g que atinja o share de resistência no final do horizonte
     if s_sim[-1] >= share_resistencia:
         best_gmed = g
         break
 
-###############################################################################
-# COMPUTAR RESULTADOS FINAIS E MONTAR DATAFRAME
-###############################################################################
-
-anos = list(range(ano_inicio, ano_inicio + anos_proj))
+# ------------------------------------------------------------------------
+# COMPILAÇÃO DOS RESULTADOS EM DATAFRAME PARA EXIBIÇÃO
+# ------------------------------------------------------------------------
+anos_result = list(range(ano_inicio, ano_inicio + anos_proj))
 crescimento_medico = []
 hcctr = []
 share = [share_inicial]
 custo = [1.0]
 debug_data = []
 
-for ano in anos:
-    if ano <= ano_transicao_fim:
-        denom = ano_transicao_fim - 2025
+for ano in anos_result:
+    if ano <= 2030:
+        denom = 2030 - 2025
         frac = (ano - 2025) / denom if denom != 0 else 1.0
         frac = min(max(frac, 0.0), 1.0)
         g_m = g_2025 + (best_gmed - g_2025) * frac
         motivo = "Interpolação 2025–2030"
-
     elif ano >= ano_limite:
         g_m = renda_pc_proj
-        motivo = "Ano limite: crescimento médico = renda"
-
+        motivo = "Convergência de Crescimento"
     else:
         excesso = max(best_gmed - renda_pc_proj, 0.0)
         fator_res = resistencia(share[-1], share_resistencia)
         g_m = renda_pc_proj + excesso * fator_res
-        motivo = "Resistência aplicada"
+        motivo = "Resistência Aplicada"
 
     crescimento_medico.append(g_m)
     hcctr.append(g_m - renda_pc_proj)
@@ -256,71 +331,103 @@ for ano in anos:
     share.append(share[-1] * (1.0 + (g_m - renda_pc_proj)))
 
     debug_data.append({
-        "Ano": ano,
-        "Crescimento Médico (%)": g_m * 100,
-        "HCCTR (%)": (g_m - renda_pc_proj) * 100,
-        "Share PIB (%)": share[-2] * 100,
-        "Motivo": motivo
+        "Ano":                     ano,
+        "Crescimento Médico (%)":  g_m * 100,
+        "HCCTR (%)":               (g_m - renda_pc_proj) * 100,
+        "Share Saúde no PIB (%)":  share[-2] * 100,
+        "Motivo da Hipótese":      motivo
     })
 
 df = pd.DataFrame(debug_data)
 
-###############################################################################
-# EXIBIÇÃO DOS RESULTADOS NO STREAMLIT
-###############################################################################
+# ------------------------------------------------------------------------
+# EXIBIÇÃO DOS RESULTADOS NO DASHBOARD PRINCIPAL
+# ------------------------------------------------------------------------
 
-# Mostrar o valor estimado de crescimento pleno
+# Seção: Destaque do crescimento médico pleno
+st.markdown("---")
 st.markdown(
-    f"<hr><p><strong>📌 Crescimento Médico Pleno estimado automaticamente:</strong> "
-    f"<span style='color:darkblue'>{best_gmed:.4%}</span> ao ano</p>",
+    f"<div style='font-size:1.2rem; font-weight:600; color:#1F2833;'>"
+    f"Crescimento Médico Pleno Estimado: <span style='color:#1F2833;'>{best_gmed:.4%}</span> ao ano"
+    f"</div>",
     unsafe_allow_html=True
 )
 
-# Tabela de projeção
-st.subheader("📊 Tabela de Projeção")
-st.dataframe(df, use_container_width=True)
-
-# Cálculo de blocos de HCCTR
+# Seção: Principais indicadores de HCCTR em colunas
 curto = np.mean(hcctr[:5]) * 100
 medio = np.mean(hcctr[5:9]) * 100
 longo = np.mean(hcctr[9:]) * 100
 
-st.markdown(f"**HCCTR Curto Prazo (1–5 anos):** {curto:.2f}%")
-st.markdown(f"**HCCTR Médio Prazo (6–9 anos):** {medio:.2f}%")
-st.markdown(f"**HCCTR Longo Prazo (10+ anos):** {longo:.2f}%")
+st.markdown("#### Indicadores de HCCTR por Horizonte")
+col1, col2, col3 = st.columns(3)
+col1.metric(label="HCCTR Curto Prazo (1–5 anos)", value=f"{curto:.2f}%", delta=None)
+col2.metric(label="HCCTR Médio Prazo (6–9 anos)", value=f"{medio:.2f}%", delta=None)
+col3.metric(label="HCCTR Longo Prazo (10+ anos)", value=f"{longo:.2f}%", delta=None)
 
-# Botão de download da tabela final em CSV
-csv = df.to_csv(index=False).encode("utf-8")
-st.download_button("📥 Baixar CSV", csv, "projecao_getzen.csv", "text/csv")
+# Seção: Tabela de Projeção (com expander para evitar poluição visual)
+with st.expander("Exibir Tabela Completa de Projeção"):
+    st.dataframe(df, use_container_width=True)
 
-# Gráfico 1: Projeção do HCCTR
-fig, ax = plt.subplots()
-ax.plot(df["Ano"], df["HCCTR (%)"], label="HCCTR (%)", marker="o", color="#1f77b4")
-ax.axhline(0, color="gray", linestyle="--")
-ax.set_xlabel("Ano")
-ax.set_ylabel("HCCTR (%)")
-ax.set_title("Projeção do HCCTR")
-ax.grid(True)
-ax.legend()
-st.pyplot(fig)
+# Seção: Botão de Exportação de CSV
+csv_bytes = df.to_csv(index=False).encode("utf-8")
+st.download_button(
+    label="Exportar Tabela (CSV)",
+    data=csv_bytes,
+    file_name="projecao_getzen.csv",
+    mime="text/csv"
+)
 
-# Gráfico 2: Participação da Saúde no PIB
-fig2, ax2 = plt.subplots()
-ax2.plot(df["Ano"], df["Share PIB (%)"], color="#ff7f0e", label="Participação da Saúde no PIB", marker="s")
-ax2.axhline(share_resistencia * 100, color="red", linestyle="--", label="Limite de Resistência")
-ax2.set_xlabel("Ano")
-ax2.set_ylabel("Participação no PIB (%)")
-ax2.set_title("Participação da Saúde no PIB")
-ax2.grid(True)
-ax2.legend()
-st.pyplot(fig2)
+# Seção: Gráficos organizados em abas para análise comparativa
+st.markdown("---")
+st.markdown("### Visualização Gráfica dos Resultados")
 
-# Gráfico 3: Inflação Médica Acumulada (Fator acumulado do custo)
-fig3, ax3 = plt.subplots()
-ax3.plot(df["Ano"], [custo[i + 1] for i in range(len(anos))], color="#1f77b4", label="Inflação médica acumulada")
-ax3.set_xlabel("Ano")
-ax3.set_ylabel("Fator acumulado")
-ax3.set_title("Inflação Médica Acumulada")
-ax3.grid(True)
-ax3.legend()
-st.pyplot(fig3)
+tab1, tab2, tab3 = st.tabs([
+    "Evolução do HCCTR (%)",
+    "Share da Saúde no PIB (%)",
+    "Inflação Médica Acumulada"
+])
+
+with tab1:
+    fig1, ax1 = plt.subplots(figsize=(8, 4))
+    ax1.plot(df["Ano"], df["HCCTR (%)"], marker="o", color="#1F77B4", label="HCCTR")
+    ax1.axhline(0, color="gray", linestyle="--", linewidth=1)
+    ax1.set_xlabel("Ano", fontsize=12)
+    ax1.set_ylabel("HCCTR (%)", fontsize=12)
+    ax1.set_title("Evolução do HCCTR (%)", fontsize=14, fontweight='600')
+    ax1.grid(alpha=0.3)
+    ax1.legend()
+    st.pyplot(fig1)
+
+with tab2:
+    fig2, ax2 = plt.subplots(figsize=(8, 4))
+    ax2.plot(df["Ano"], df["Share Saúde no PIB (%)"], marker="s", color="#FF7F0E", label="Share Saúde")
+    ax2.axhline(share_resistencia * 100, color="red", linestyle="--", linewidth=1, label="Limite de Resistência")
+    ax2.set_xlabel("Ano", fontsize=12)
+    ax2.set_ylabel("Share Saúde no PIB (%)", fontsize=12)
+    ax2.set_title("Participação da Saúde no PIB ao Longo dos Anos", fontsize=14, fontweight='600')
+    ax2.grid(alpha=0.3)
+    ax2.legend()
+    st.pyplot(fig2)
+
+with tab3:
+    fig3, ax3 = plt.subplots(figsize=(8, 4))
+    acumulado = [custo[i + 1] for i in range(len(anos_result))]
+    ax3.plot(df["Ano"], acumulado, marker="^", color="#1F77B4", label="Acumulado")
+    ax3.set_xlabel("Ano", fontsize=12)
+    ax3.set_ylabel("Fator Acumulado", fontsize=12)
+    ax3.set_title("Inflação Médica Acumulada", fontsize=14, fontweight='600')
+    ax3.grid(alpha=0.3)
+    ax3.legend()
+    st.pyplot(fig3)
+
+# ------------------------------------------------------------------------
+# RODAPÉ COM NOTAS INSTITUCIONAIS
+# ------------------------------------------------------------------------
+st.markdown("---")
+st.markdown(
+    "<div style='font-size:0.85rem; color:#666666;'>"
+    "Painel desenvolvido com base em melhores práticas atuariais e relatórios corporativos. "
+    "© 2025 – Equipe de Modelagem Atuarial. Todos os direitos reservados."
+    "</div>",
+    unsafe_allow_html=True
+)
