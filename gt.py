@@ -26,22 +26,22 @@ st.title("📊 Inflação Médica – Modelo Getzen Adaptado ao Brasil")
 
 st.sidebar.header("Parâmetros de Entrada")
 
-anos_proj = st.sidebar.slider("Anos de Projeção", 10, 100, 60, help="Horizonte da projeção (ex: 60 anos para planos de longo prazo)")
+anos_proj = st.sidebar.slider("Anos de Projeção", 10, 100, 60, help="Defina o horizonte da projeção atuarial em anos. Ex: 60 anos para planos de longo prazo.")")
 ano_inicio = 2026
-ano_limite = st.sidebar.number_input("Ano limite para convergência HCCTR = 0", 2035, 2100, 2060, help="Ano a partir do qual se assume que g_médico = crescimento da renda")
+ano_limite = st.sidebar.number_input("Ano limite para convergência HCCTR = 0", 2035, 2100, 2060, help="Ano a partir do qual se assume que o crescimento médico = crescimento da renda per capita.")
 
-inflacao = st.sidebar.number_input("Inflação esperada (CPI)", 0.0, 1.0, 0.035, step=0.000001, format="%.6f", help="Inflação anual esperada, ex: 0.035 para 3,5%")
-renda_real = st.sidebar.number_input("Crescimento real da renda per capita", 0.0, 1.0, 0.015, step=0.000001, format="%.6f", help="Crescimento acima da inflação, ex: 0.015 para 1,5%")
+inflacao = st.sidebar.number_input("Inflação esperada (CPI)", 0.0, 1.0, 0.035, step=0.000001, format="%.6f", help="Inflação média anual esperada. Ex: 0.035 representa 3,5%.")
+renda_real = st.sidebar.number_input("Crescimento real da renda per capita", 0.0, 1.0, 0.015, step=0.000001, format="%.6f", help="Variação real da renda per capita além da inflação. Ex: 0.015 = 1,5%.")
 renda_pc = inflacao + renda_real
 
 g_medico_manual = [
-    st.sidebar.number_input("Ano 1 – Crescimento Médico", 0.0, 1.0, 0.151, step=0.000001, format="%.6f", help="Ano 1: ex. 0.151 baseado em VCMH"),
-    st.sidebar.number_input("Ano 2 – Crescimento Médico", 0.0, 1.0, 0.127, step=0.000001, format="%.6f", help="Ano 2: ex. 0.127 baseado em VCMH"),
-    st.sidebar.number_input("Ano 3 – Crescimento Médico", 0.0, 1.0, 0.112, step=0.000001, format="%.6f", help="Ano 3: ex. 0.112 baseado em VCMH"),
-    st.sidebar.number_input("Ano 4 – Crescimento Médico", 0.0, 1.0, 0.105, step=0.000001, format="%.6f", help="Ano 4: ex. 0.105 baseado em VCMH"),
+    st.sidebar.number_input("Ano 1 – Crescimento Médico", 0.0, 1.0, 0.151, step=0.000001, format="%.6f", help="Crescimento dos custos médicos no 1º ano da projeção (ex: 0.151 = 15,1%)."),
+    st.sidebar.number_input("Ano 2 – Crescimento Médico", 0.0, 1.0, 0.127, step=0.000001, format="%.6f", help="Crescimento dos custos médicos no 2º ano da projeção (ex: 0.127 = 12,7%)."),
+    st.sidebar.number_input("Ano 3 – Crescimento Médico", 0.0, 1.0, 0.112, step=0.000001, format="%.6f", help="Crescimento dos custos médicos no 3º ano da projeção (ex: 0.112 = 11,2%)."),
+    st.sidebar.number_input("Ano 4 – Crescimento Médico", 0.0, 1.0, 0.105, step=0.000001, format="%.6f", help="Crescimento dos custos médicos no 4º ano da projeção (ex: 0.105 = 10,5%)."),
 ]
 
-g_medico_final = st.sidebar.number_input("Crescimento Médico Pleno (após transição)", 0.0, 1.0, 0.080, step=0.000001, format="%.6f", help="Crescimento médico de longo prazo após transição")
+g_medico_final = st.sidebar.number_input("Crescimento Médico Pleno (após transição)", 0.0, 1.0, 0.080, step=0.000001, format="%.6f", help="Taxa de crescimento médico de longo prazo. Ex: 0.08 = 8% ao ano.")
 ano_transicao_fim = 2030
 
 share_inicial = st.sidebar.number_input("Participação inicial da Saúde no PIB", 0.0, 1.0, 0.096, step=0.000001, format="%.6f", help="Ex: 0.096 representa 9,6% do PIB total destinado à saúde no início da projeção")
