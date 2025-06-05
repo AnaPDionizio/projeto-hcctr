@@ -26,7 +26,7 @@ st.title("📊 Inflação Médica – Modelo Getzen Adaptado ao Brasil")
 
 st.sidebar.header("Parâmetros de Entrada")
 
-anos_proj = st.sidebar.slider("Anos de Projeção", 10, 100, 60, help="Defina o horizonte da projeção atuarial em anos. Ex: 60 anos para planos de longo prazo.")")
+anos_proj = st.sidebar.slider("Anos de Projeção", 10, 100, 60, help="Defina o horizonte da projeção atuarial em anos. Ex: 60 anos para planos de longo prazo.")
 ano_inicio = 2026
 ano_limite = st.sidebar.number_input("Ano limite para convergência HCCTR = 0", 2035, 2100, 2060, help="Ano a partir do qual se assume que o crescimento médico = crescimento da renda per capita.")
 
