@@ -81,7 +81,7 @@ def simular_projecao(g_medico_final):
             g_m = g_medico_manual[i]
         elif ano <= ano_transicao_fim:
             denom = ano_transicao_fim - ano_inicio - 4
-        frac = (ano - ano_inicio - 4) / denom if denom != 0 else 1.0
+            frac = (ano - ano_inicio - 4) / denom if denom != 0 else 1.0
             g_m = g_medico_manual[-1] + (g_medico_final - g_medico_manual[-1]) * frac
         elif ano >= ano_limite:
             g_m = renda_pc_proj
@@ -109,7 +109,8 @@ for i, ano in enumerate(anos):
         g_m = g_medico_manual[i]
         motivo = f"Manual ({ano_inicio}–{ano_inicio + 3})"
     elif ano <= ano_transicao_fim:
-        frac = (ano - ano_inicio - 4) / (ano_transicao_fim - ano_inicio - 4)
+        denom = ano_transicao_fim - ano_inicio - 4
+        frac = (ano - ano_inicio - 4) / denom if denom != 0 else 1.0
         g_m = g_medico_manual[-1] + (best_gmed - g_medico_manual[-1]) * frac
         motivo = "Transição Linear"
     elif ano >= ano_limite:
@@ -135,6 +136,7 @@ for i, ano in enumerate(anos):
 
 df = pd.DataFrame(debug_data)
 
+st.markdown(f"<hr><p><strong>📌 Crescimento Médico Pleno estimado automaticamente:</strong> <span style='color:darkblue'>{best_gmed:.4%}</span> ao ano</p>", unsafe_allow_html=True)
 st.subheader("📊 Tabela de Projeção")
 st.dataframe(df, use_container_width=True)
 
