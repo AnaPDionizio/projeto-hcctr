@@ -84,7 +84,7 @@ with st.container():
     with col_title:
         st.markdown('<div class="main-header">Inflação Médica – Modelo Getzen Adaptado ao Brasil</div>', unsafe_allow_html=True)
         st.markdown(
-            '<div class="subheader">Painel para projeções atuariais de HCCTR e share de saúde no PIB, em consonância com melhores práticas corporativas.</div>',
+            '<div class="subheader">Painel para projeções atuariais de HCCTR e share de saúde no PIB </div>',
             unsafe_allow_html=True
         )
 
@@ -237,7 +237,6 @@ with st.sidebar.expander("4. Share de Saúde e Resistência"):
     )
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("© 2025 – Comitê de Modelagem Atuarial")
 
 # ------------------------------------------------------------------------
 # FUNÇÕES DE CÁLCULO E SIMULAÇÃO
@@ -423,11 +422,14 @@ with tab3:
 # ------------------------------------------------------------------------
 # RODAPÉ COM NOTAS INSTITUCIONAIS
 # ------------------------------------------------------------------------
-st.markdown("---")
 st.markdown(
-    "<div style='font-size:0.85rem; color:#666666;'>"
-    "Painel desenvolvido com base em melhores práticas atuariais e relatórios corporativos. "
-    "© 2025 – Equipe de Modelagem Atuarial. Todos os direitos reservados."
+    "<div class='footer-text' style='font-size:0.85rem; color:gray; margin-top:2em;'>"
+    "Este painel é inspirado no modelo teórico proposto por <strong>Thomas E. Getzen</strong> em seu estudo técnico "
+    "<em>“Modeling Health Care Cost Trends: A Technical Manual”</em> (Society of Actuaries, 2016), adaptado à realidade brasileira. "
+    "Todos os direitos do modelo original pertencem ao autor e à Society of Actuaries. "
+    "Esta implementação visa fins educacionais e de projeção atuarial.<br>"
+    "© 2025 – Equipe Assistants."
     "</div>",
     unsafe_allow_html=True
 )
+
