@@ -80,7 +80,8 @@ def simular_projecao(g_medico_final):
         if i < 4:
             g_m = g_medico_manual[i]
         elif ano <= ano_transicao_fim:
-            frac = (ano - ano_inicio - 4) / (ano_transicao_fim - ano_inicio - 4)
+            denom = ano_transicao_fim - ano_inicio - 4
+        frac = (ano - ano_inicio - 4) / denom if denom != 0 else 1.0
             g_m = g_medico_manual[-1] + (g_medico_final - g_medico_manual[-1]) * frac
         elif ano >= ano_limite:
             g_m = renda_pc_proj
