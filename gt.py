@@ -44,10 +44,10 @@ g_medico_manual = [
 g_medico_final = st.sidebar.number_input("Crescimento Médico Pleno (após transição)", 0.0, 1.0, 0.080, step=0.000001, format="%.6f", help="Crescimento médico de longo prazo após transição")
 ano_transicao_fim = 2030
 
-share_inicial = st.sidebar.number_input("Participação inicial da Saúde no PIB", 0.0, 1.0, 0.096, step=0.000001, format="%.6f")
-share_resistencia = st.sidebar.number_input("Limite de resistência (share máximo)", 0.0, 1.0, 0.15, step=0.000001, format="%.6f")
+share_inicial = st.sidebar.number_input("Participação inicial da Saúde no PIB", 0.0, 1.0, 0.096, step=0.000001, format="%.6f", help="Ex: 0.096 representa 9,6% do PIB total destinado à saúde no início da projeção")
+share_resistencia = st.sidebar.number_input("Limite de resistência (share máximo)", 0.0, 1.0, 0.15, step=0.000001, format="%.6f", help="Ex: 0.15 representa 15% do PIB como teto político-fiscal para despesas com saúde")
 
-uploaded_file = st.sidebar.file_uploader("📂 Carregar CSV PIB per capita (opcional)", type="csv")
+uploaded_file = st.sidebar.file_uploader("📂 Carregar CSV PIB per capita (opcional)", type="csv", help="Deve conter colunas: Ano,Valor – onde Valor é o PIB per capita em R$")
 
 if uploaded_file:
     try:
@@ -81,7 +81,7 @@ for i, ano in enumerate(anos):
     renda_ano = get_renda_pc(ano)
     if i < 4:
         g_m = g_medico_manual[i]
-        motivo = "Manual (2019–2022)"
+        motivo = f"Manual ({ano_inicio}–{ano_inicio + 3})"
     elif ano <= ano_transicao_fim:
         frac = (ano - 2022) / (ano_transicao_fim - 2022)
         g_m = g_medico_manual[-1] + (g_medico_final - g_medico_manual[-1]) * frac
