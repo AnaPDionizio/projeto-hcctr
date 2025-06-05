@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -79,6 +80,15 @@ df = pd.DataFrame(debug_data)
 # Exibição da tabela
 st.subheader("📊 Tabela de Projeção")
 st.dataframe(df, use_container_width=True)
+
+# Blocos de HCCTR
+curto = np.mean(hcctr[:5]) * 100
+medio = np.mean(hcctr[5:9]) * 100
+longo = np.mean(hcctr[9:]) * 100
+
+st.markdown(f"**HCCTR Curto Prazo (1–5 anos):** {curto:.2f}%")
+st.markdown(f"**HCCTR Médio Prazo (6–9 anos):** {medio:.2f}%")
+st.markdown(f"**HCCTR Longo Prazo (10+ anos):** {longo:.2f}%")
 
 # Download
 csv = df.to_csv(index=False).encode('utf-8')
