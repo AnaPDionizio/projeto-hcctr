@@ -30,22 +30,22 @@ anos_proj = st.sidebar.slider("Anos de Projeção", 10, 100, 60)
 ano_inicio = 2019
 ano_limite = st.sidebar.number_input("Ano limite para convergência HCCTR = 0", 2035, 2100, 2060)
 
-inflacao = st.sidebar.number_input("Inflação esperada (CPI)", 0.0, 1.0, 0.035)
-renda_real = st.sidebar.number_input("Crescimento real da renda per capita", 0.0, 1.0, 0.015)
+inflacao = st.sidebar.number_input("Inflação esperada (CPI)", 0.0, 1.0, 0.035, step=0.000001, format="%.6f")
+renda_real = st.sidebar.number_input("Crescimento real da renda per capita", 0.0, 1.0, 0.015, step=0.000001, format="%.6f")
 renda_pc = inflacao + renda_real
 
 g_medico_manual = [
-    st.sidebar.number_input("Ano 1 – Crescimento Médico", 0.0, 1.0, 0.151),
-    st.sidebar.number_input("Ano 2 – Crescimento Médico", 0.0, 1.0, 0.127),
-    st.sidebar.number_input("Ano 3 – Crescimento Médico", 0.0, 1.0, 0.112),
-    st.sidebar.number_input("Ano 4 – Crescimento Médico", 0.0, 1.0, 0.105),
+    st.sidebar.number_input("Ano 1 – Crescimento Médico", 0.0, 1.0, 0.151, step=0.000001, format="%.6f"),
+    st.sidebar.number_input("Ano 2 – Crescimento Médico", 0.0, 1.0, 0.127, step=0.000001, format="%.6f"),
+    st.sidebar.number_input("Ano 3 – Crescimento Médico", 0.0, 1.0, 0.112, step=0.000001, format="%.6f"),
+    st.sidebar.number_input("Ano 4 – Crescimento Médico", 0.0, 1.0, 0.105, step=0.000001, format="%.6f"),
 ]
 
-g_medico_final = st.sidebar.number_input("Crescimento Médico Pleno (após transição)", 0.0, 1.0, 0.08)
+g_medico_final = st.sidebar.number_input("Crescimento Médico Pleno (após transição)", 0.0, 1.0, 0.08, step=0.000001, format="%.6f")
 ano_transicao_fim = 2030
 
-share_inicial = st.sidebar.number_input("Participação inicial da Saúde no PIB", 0.0, 1.0, 0.096)
-share_resistencia = st.sidebar.number_input("Limite de resistência (share máximo)", 0.0, 1.0, 0.15)
+share_inicial = st.sidebar.number_input("Participação inicial da Saúde no PIB", 0.0, 1.0, 0.096, step=0.000001, format="%.6f")
+share_resistencia = st.sidebar.number_input("Limite de resistência (share máximo)", 0.0, 1.0, 0.15, step=0.000001, format="%.6f")
 
 uploaded_file = st.sidebar.file_uploader("📂 Carregar CSV PIB per capita (opcional)", type="csv")
 
@@ -114,15 +114,19 @@ df = pd.DataFrame(debug_data)
 ###############################################################################
 
 st.subheader("📊 Tabela de Projeção")
-st.dataframe(df, use_container_width=True)
+st.dataframe(df.style.format({
+    "Crescimento Médico (%)": "{:.4f}",
+    "HCCTR (%)": "{:.4f}",
+    "Share PIB (%)": "{:.4f}"
+}), use_container_width=True)
 
 curto = np.mean(hcctr[:5]) * 100
 medio = np.mean(hcctr[5:9]) * 100
 longo = np.mean(hcctr[9:]) * 100
 
-st.markdown(f"**HCCTR Curto Prazo (1–5 anos):** {curto:.2f}%")
-st.markdown(f"**HCCTR Médio Prazo (6–9 anos):** {medio:.2f}%")
-st.markdown(f"**HCCTR Longo Prazo (10+ anos):** {longo:.2f}%")
+st.markdown(f"**HCCTR Curto Prazo (1–5 anos):** {curto:.4f}%")
+st.markdown(f"**HCCTR Médio Prazo (6–9 anos):** {medio:.4f}%")
+st.markdown(f"**HCCTR Longo Prazo (10+ anos):** {longo:.4f}%")
 
 csv = df.to_csv(index=False).encode('utf-8')
 st.download_button("📥 Baixar CSV", csv, "projecao_getzen_brasil.csv", "text/csv")
