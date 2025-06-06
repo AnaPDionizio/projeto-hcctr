@@ -407,7 +407,7 @@ st.download_button(
     file_name="projecao_getzen.csv",
     mime="text/csv"
 )
-
+#olá
 # Seção: Gráficos organizados em abas para análise comparativa
 st.markdown("---")
 st.markdown("### Visualização Gráfica dos Resultados")
