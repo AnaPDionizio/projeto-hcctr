@@ -196,13 +196,13 @@ with st.sidebar.expander("2. Inflação e Renda Per Capita"):
             if tipo_pib == "Nominal (corrente)":
                 renda_pc_proj = media_real
                 st.markdown(
-                    f"<div><small>Usando crescimento NOMINAL médio dos últimos 20 anos: <strong>{media_real:.4%}</strong></small></div>",
+                    f"<div><small>Usando crescimento NOMINAL médio: <strong>{media_real:.4%}</strong></small></div>",
                     unsafe_allow_html=True
                 )
             else:
                 renda_pc_proj = inflacao + media_real
                 st.markdown(
-                    f"<div><small>Usando crescimento REAL médio dos últimos 20 anos: <strong>{media_real:.4%}</strong> + inflação ({inflacao:.4%}) → total <strong>{renda_pc_proj:.4%}</strong></small></div>",
+                    f"<div><small>Usando crescimento REAL médio : <strong>{media_real:.4%}</strong> + inflação ({inflacao:.4%}) → total <strong>{renda_pc_proj:.4%}</strong></small></div>",
                     unsafe_allow_html=True
                 )
 
