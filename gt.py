@@ -137,7 +137,7 @@ with st.sidebar.expander("1. Horizonte e Cenários Atuais"):
 # ------------------------------------------------------------------------
 
 with st.sidebar.expander("2. Inflação e Renda Per Capita"):
-    st.markdown("##### Inflação (IPCA/CPI)")
+    st.markdown("##### Inflação (IPCA)")
     inflacao = st.number_input(
         label="Inflação Média Projetada",
         min_value=0.000000, max_value=1.000000, value=0.035000,
