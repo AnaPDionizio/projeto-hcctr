@@ -460,7 +460,7 @@ st.markdown(
     "<em>“Modeling Health Care Cost Trends: A Technical Manual”</em> (Society of Actuaries, 2016), adaptado à realidade brasileira. "
     "Todos os direitos do modelo original pertencem ao autor e à Society of Actuaries. "
     "Esta implementação visa fins educacionais e de projeção atuarial.<br>"
-    "© 2025 – Equipe Assistants."
+    "© 2025 – Equipe Assistants"
     "</div>",
     unsafe_allow_html=True
 )
