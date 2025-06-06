@@ -132,16 +132,20 @@ with st.sidebar.expander("1. Horizon e Cenários Atuais"):
     )
 
 # PARÂMETROS MACROECONÔMICOS
+# ------------------------------------------------------------------------
+# 2. Inflação e Renda Per Capita (Bloco refeito)
+# ------------------------------------------------------------------------
+
 with st.sidebar.expander("2. Inflação e Renda Per Capita"):
     st.markdown("##### Inflação (IPCA/CPI)")
     inflacao = st.number_input(
         label="Inflação Média Projetada",
         min_value=0.000000, max_value=1.000000, value=0.035000,
         step=0.000001, format="%.6f",
-        help="Infl ação média anual estimada (ex.: 0.035 = 3,5%)."
+        help="Inflação média anual estimada (ex.: 0.035 = 3,5%)."
     )
 
-    st.markdown("##### Crescimento Real da Renda")
+    st.markdown("##### Crescimento Real da Renda (se não carregar PIB)")
     renda_real = st.number_input(
         label="Crescimento Real da Renda Per Capita",
         min_value=0.000000, max_value=1.000000, value=0.015000,
@@ -149,37 +153,65 @@ with st.sidebar.expander("2. Inflação e Renda Per Capita"):
         help="Variação real adicional da renda per capita (ex.: 0.015 = 1,5%)."
     )
 
-    renda_pc_padrao = inflacao + renda_real
-
     st.markdown("##### Carregar Base Externa (Opcional)")
     uploaded_file = st.file_uploader(
         label="CSV: PIB per capita",
         type="csv",
         help="Arquivo com colunas 'Ano' e 'Valor' (PIB per capita em R$)."
     )
+
     if uploaded_file:
         try:
             pib_df = pd.read_csv(uploaded_file)
             if not {"Ano", "Valor"}.issubset(pib_df.columns):
                 raise ValueError("O CSV deve conter as colunas 'Ano' e 'Valor'.")
             pib_df["Valor"] = pd.to_numeric(pib_df["Valor"], errors="coerce")
-            pib_df = pib_df.dropna().set_index("Ano")
+            pib_df = pib_df.dropna().set_index("Ano").sort_index()
+
+            # Pergunta quantos anos recentes o usuário quer usar
+            num_anos_media = st.slider(
+                "Quantidade de anos recentes para calcular a média de crescimento da renda",
+                min_value=5, max_value=30, value=20, step=1,
+                help="Define quantos anos recentes usar para calcular a média de crescimento da renda per capita."
+            )
+
+            # PEGAR SOMENTE OS ÚLTIMOS 20 ANOS
+            pib_df = pib_df.tail(num_anos_media)
+
+
+            # PERGUNTA SE É NOMINAL OU REAL
+            tipo_pib = st.radio("Tipo de PIB per capita no arquivo:", ["Nominal (corrente)", "Real (deflacionado)"])
+
+            # CÁLCULO DOS CRESCIMENTOS ANO A ANO
             lista_cres_real = []
             for ano in pib_df.index:
                 if (ano - 1) in pib_df.index:
                     g_nominal = pib_df.loc[ano, "Valor"] / pib_df.loc[ano - 1, "Valor"] - 1
                     lista_cres_real.append(g_nominal)
+
+            # CÁLCULO DA MÉDIA
             media_real = np.mean(lista_cres_real)
-            renda_pc_proj = inflacao + media_real
-            st.markdown(
-                f"<div><small>Crescimento real estimado historicamente: <strong>{media_real:.4%}</strong></small></div>",
-                unsafe_allow_html=True
-            )
+
+            # AJUSTE DA RENDA PER CAPITA PROJETADA
+            if tipo_pib == "Nominal (corrente)":
+                renda_pc_proj = media_real
+                st.markdown(
+                    f"<div><small>Usando crescimento NOMINAL médio dos últimos 20 anos: <strong>{media_real:.4%}</strong></small></div>",
+                    unsafe_allow_html=True
+                )
+            else:
+                renda_pc_proj = inflacao + media_real
+                st.markdown(
+                    f"<div><small>Usando crescimento REAL médio dos últimos 20 anos: <strong>{media_real:.4%}</strong> + inflação ({inflacao:.4%}) → total <strong>{renda_pc_proj:.4%}</strong></small></div>",
+                    unsafe_allow_html=True
+                )
+
         except Exception as e:
             st.error(f"Falha ao ler CSV de PIB: {e}")
-            renda_pc_proj = renda_pc_padrao
+            renda_pc_proj = inflacao + renda_real
     else:
-        renda_pc_proj = renda_pc_padrao
+        renda_pc_proj = inflacao + renda_real
+
 
 # HIPÓTESES HISTÓRICAS DE CRESCIMENTO MÉDICO
 with st.sidebar.expander("3. Crescimento Médico (2021–2024)"):
