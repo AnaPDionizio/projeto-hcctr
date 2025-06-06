@@ -112,7 +112,7 @@ with st.sidebar.expander("Dados de Referência"):
         st.warning("Arquivo de exemplo não encontrado.")
 
 # CONFIGURAÇÃO DOS PARÂMETROS ATUARIAIS
-with st.sidebar.expander("1. Horizon e Cenários Atuais"):
+with st.sidebar.expander("1. Horizonte e Cenários Atuais"):
     st.markdown("##### Horizonte de Projeção")
     anos_proj = st.slider(
         label="Horizonte (anos)",
